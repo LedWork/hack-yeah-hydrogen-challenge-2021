@@ -16,34 +16,35 @@ import pandas as pd
 
 
 if __name__ == '__main__':
+    data_folder = "./data/"
     arguments = docopt(__doc__, version='Runner 1.0')
     # print(arguments)
 
-    pv_locations = pd.read_excel("pv_location.xlsx", sheet_name="EV_location")
+    pv_locations = pd.read_csv(data_folder + "pv_location.csv")
     print('')
-    print('== pv_location.xlsx ==')
-    print("pv_location = ", pv_locations['ev_location'].to_list())
+    print('== pv_location.csv ==')
+    print("pv_location = ", pv_locations['pv_location'].to_list())
     print("distance = ", pv_locations['distance'].to_list())
     print("max_MW = ", pv_locations['max_MW'].to_list())
     print("collection_cost = ", pv_locations['collection_cost'].to_list())
 
-    pv_generation = pd.read_excel("pv_generation.xlsx", sheet_name="Arkusz1")
+    pv_generation = pd.read_csv(data_folder + "pv_generation.csv")
     print('')
-    print('== pv_generation.xlsx ==')
+    print('== pv_generation.csv ==')
     print("month = ", pv_generation['month'].to_list())
-    print("pv_generation = ", pv_generation['ev_generation'].to_list())
+    print("pv_generation = ", pv_generation['pv_generation'].to_list())
 
-    type_of_construction = pd.read_excel("type_of_construction.xlsx", sheet_name="Arkusz1")
+    type_of_construction = pd.read_csv(data_folder + "type_of_construction.csv")
     print('')
-    print('== type_of_construction.xlsx ==')
-    print("type = ", type_of_construction['Type'].to_list())
-    print("cost = ", type_of_construction['Cost'].to_list())
+    print('== type_of_construction.csv ==')
+    print("type = ", type_of_construction['type'].to_list())
+    print("cost = ", type_of_construction['cost'].to_list())
 
     opt_model = plp.LpProblem(name="MIP_Model", sense=plp.LpMinimize)
 
-    locations = pv_locations['ev_location'].to_list()
+    locations = pv_locations['pv_location'].to_list()
     time = pv_generation['month'].to_list()
-    pv_gen = pv_generation['ev_generation'].to_list()
+    pv_gen = pv_generation['pv_generation'].to_list()
     pv_kWh = dict(zip(time, pv_gen))
 
     print('')
@@ -52,13 +53,58 @@ if __name__ == '__main__':
     max_pv = dict(zip(locations, pv_locations['max_MW'].to_list()))
     print("max_pv = ", max_pv)
 
-    # number of PV MW per location
+    # ZMIENNE
+    # number of PV per location
     Pv_n = plp.LpVariable.dicts("pv_count",
                                 locations,
                                 lowBound=0,
                                 cat=plp.LpInteger)
 
-    print("Pv_n = ", Pv_n)
+    # number of energy storage units per location
+    Accu_n = plp.LpVariable.dicts("accu_count",
+                                  locations,
+                                  lowBound=0,
+                                  cat=plp.LpInteger)
+
+    # number of hydrogen storage units per location
+    Storage_n = plp.LpVariable.dicts("storage_count",
+                                     locations,
+                                     lowBound=0,
+                                     cat=plp.LpInteger)
+
+    # energy production per location and time
+    E_production_pv = plp.LpVariable.dicts("E_production_pv",
+                                           ((l, dt) for l in locations for dt in time),
+                                           lowBound=0,
+                                           cat=plp.LpContinuous)
+
+    # energy in storage per location and time
+    E_stored_pv = plp.LpVariable.dicts("E_stored_pv",
+                                       ((l, dt) for l in locations for dt in time),
+                                       lowBound=0,
+                                       cat=plp.LpContinuous)
+
+    # hydrogen in storage per location and time
+    H2_stored_pv = plp.LpVariable.dicts("H2_stored_pv",
+                                        ((l, dt) for l in locations for dt in time),
+                                        lowBound=0,
+                                        cat=plp.LpContinuous)
+
+    # energy used from pv
+    E_used_pv = plp.LpVariable.dicts("E_used_pv",
+                                     ((l, dt) for l in locations for dt in time),
+                                     lowBound=0,
+                                     cat=plp.LpContinuous)
+    # energy used from accu
+    E_used_accu_pv = plp.LpVariable.dicts("E_used_accu_pv",
+                                          ((l, dt) for l in locations for dt in time),
+                                          lowBound=0,
+                                          cat=plp.LpContinuous)
+    # hydrogen used from storage
+    H2_used_storage_pv = plp.LpVariable.dicts("H2_used_storage_pv",
+                                              ((l, dt) for l in locations for dt in time),
+                                              lowBound=0,
+                                              cat=plp.LpContinuous)
 
     # opt_df = pd.DataFrame.from_dict(Pv_n, orient="index",
     #                                 columns=["variable_object"])
